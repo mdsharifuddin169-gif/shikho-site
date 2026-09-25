@@ -35,9 +35,9 @@ exports.handler = async function (event) {
     "কখনো LaTeX বা \\text{}, $ চিহ্ন ব্যবহার করো না — রাসায়নিক সংকেত বা সংখ্যা লিখতে সরাসরি সাধারণ টেক্সট ব্যবহার করো, যেমন H2O, CO2। " +
     "পুরো উত্তর শুধুমাত্র বাংলা ভাষায় লিখবে, ভুলেও অন্য কোনো ভাষার শব্দ ব্যবহার করবে না।";
 
-  try {
+  async function callGemini(model) {
     const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" +
+      "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" +
         encodeURIComponent(apiKey),
       {
         method: "POST",
@@ -48,10 +48,23 @@ exports.handler = async function (event) {
         }),
       }
     );
-    const data = await res.json();
+    return res.json();
+  }
+
+  try {
+    // প্রথমে প্রধান মডেল ট্রাই করবে, ব্যস্ত থাকলে বিকল্প মডেল ট্রাই করবে
+    const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
+    let data;
+    let lastError = null;
+
+    for (const model of models) {
+      data = await callGemini(model);
+      if (!data.error) break;
+      lastError = data.error.message;
+    }
 
     if (data.error) {
-      return { statusCode: 500, body: JSON.stringify({ error: data.error.message }) };
+      return { statusCode: 500, body: JSON.stringify({ error: lastError }) };
     }
 
     const text =
